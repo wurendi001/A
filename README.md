@@ -3,19 +3,12 @@
 
 以下四种用法都可以  
 ```
-bash <(wget -qO- git.io/ceshi)
-bash <(curl -Ls git.io/ceshi)
-bash -c "$(wget -qO- https://github.com/Aniverse/A/raw/i/a)"
-wget -q https://github.com/Aniverse/A/raw/i/a && bash a
+
 ```
 
 高级用法  
 ```
-No IP                bash <(wget -qO- git.io/ceshi) -a
-No IPIP              bash <(wget -qO- git.io/ceshi) -b
-No IOtest            bash <(wget -qO- git.io/ceshi) -c
-No IP, IPIP, IOTEST  bash <(wget -qO- git.io/ceshi) -abc
-IOPS test            bash <(wget -qO- git.io/ceshi) -j
+
 ```
 
 ![00](https://github.com/Aniverse/A/raw/i/pictures/00.png)
