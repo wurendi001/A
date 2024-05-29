@@ -1,44 +1,34 @@
 #!/bin/bash
-# Author: Aniverse
-# https://github.com/Aniverse/A
-# 
-# Thanks to superbench.sh    bench.sh   nench.sh    yabs.sh
-# https://github.com/masonr/yet-another-bench-script
-# https://github.com/n-st/nench
-# https://www.oldking.net/599.html
-# https://teddysun.com/444.html
-
-ScriptVersion=1.4.1.1
-SCRIPTUPDATE=2020.09.15
-
-########################################################################################################
-
-usage_guide() {
-    wget -qO- git.io/ceshi | bash
-    bash <(wget -qO- git.io/ceshi) -j
-    bash -c "$(wget -qO- https://github.com/Aniverse/A/raw/i/a)"
-    bash -c "$(wget -qO- https://git.io/JvTRm)"
-    bash <(wget -qO- git.io/ceshi) -abc
-    bash <(curl -s https://raw.githubusercontent.com/Aniverse/A/i/a) -f
-    wget -qO a https://github.com/Aniverse/A/raw/i/a && bash a -abc
-    bash <(wget -qO- https://github.com/Aniverse/A/raw/i/a) -ac
-    s=/usr/local/bin/abench ; rm -f $s ; nano $s ; chmod 755 $s
+ScriptVersion=10.0
+SCRIPTUPDATE=2024.04.23
+##############################
+# 自定义谷歌翻译函数
+translate() {
+  [ -n "$@" ] && EN="$@"
+  ZH=$(wget --no-check-certificate -qO- --tries=1 --timeout=2 "https://translate.google.com/translate_a/t?client=any_client_id_works&sl=en&tl=zh&q=${EN//[[:space:]]/%20}" 2>/dev/null)
+  [[ "$ZH" =~ ^\[\".+\"\]$ ]] && awk -F '"' '{print $2}' <<< "$ZH"
 }
-
-########################################################################################################
-
+##########################################################################
+YELLOW="\033[33m"   # Warning message
+_red() {
+    printf '\033[0;31;31m%b\033[0m' "$1"
+}
+_green() {
+    printf '\033[0;31;32m%b\033[0m' "$1"
+}
+colorEcho() {
+    echo -e "${1}${@:2}${PLAIN}"
+}
+############################################################################
 debug=0
 show_ip=1
 show_ipip=1
 test_io=1
 test_iops=0
 full_ip=0
-
 # 运行参数 --------------------------------------------------------------------------------------------------------
-
 OPTS=$(getopt -n "$0" -o abcdfghij --long "debug,no-ip,no-ipip,no-io,full-ip,iops,delete" -- "$@")
 eval set -- "$OPTS"
-
 while true; do
   case "$1" in
     -a | --no-ip       ) show_ip=0       ; shift ;;
@@ -52,7 +42,6 @@ while true; do
      * ) break ;;
   esac
 done
-
 # 颜色 --------------------------------------------------------------------------------------------------------
 black=$(tput setaf 0)   ; red=$(tput setaf 1)          ; green=$(tput setaf 2)   ; yellow=$(tput setaf 3);  bold=$(tput bold)
 blue=$(tput setaf 4)    ; magenta=$(tput setaf 5)      ; cyan=$(tput setaf 6)    ; white=$(tput setaf 7) ;  normal=$(tput sgr0)
@@ -65,43 +54,22 @@ baihuangse=${white}${on_yellow}; bailanse=${white}${on_blue} ; bailvse=${white}$
 baiqingse=${white}${on_cyan}   ; baihongse=${white}${on_red} ; baizise=${white}${on_magenta}
 heibaise=${black}${on_white}   ; heihuangse=${on_yellow}${black}
 CW="${bold}${baihongse} ERROR ${jiacu}";ZY="${baihongse}${bold} ATTENTION ${jiacu}";JG="${baihongse}${bold} WARNING ${jiacu}"
-
-# Ctrl+C 时恢复样式，删除无用文件
-_cancel() {
-    echo -e "\n${jiacu}退出脚本 ...${normal}\n"
-    rm -rf $HOME/.abench
-    rm -f  test_file_*   1   $HOME/ipapi
-    exit
-}
-trap _cancel INT QUIT TERM
-
 export PATH=$HOME/.abench/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:$PATH
 mkdir -p $HOME/.abench
-
-
-
-
 ##############################################################################################################################
-[[ $debug != 1 ]] && clear
+[[ $debug != 1 ]]
 ##############################################################################################################################
-echo -e "${bold}正在获取 check-sys 与 abench ...${normal}"
 [[ $EUID = 0 ]] && wget -qO /usr/local/bin/abench https://github.com/Aniverse/A/raw/i/a && chmod 755 /usr/local/bin/abench
-source <(wget -qO- https://github.com/Aniverse/inexistence/raw/master/00.Installation/check-sys)
+source <(wget -qO- https://raw.githubusercontent.com/wurendi001/inexistence/master/00.Installation/check-sys)
 ##############################################################################################################################
 check_tcp_acc
-echo -e "${bold}正在检查其他硬件信息 ...${normal}" ; hardware_check_1
+hardware_check_1
 seedbox_check
 ##############################################################################################################################
-echo -e "${bold}正在检查硬盘信息 ...${normal}"
-# 计算总共空间的时候，排除掉 FH SSD 每个用户限额的空间；计算已用空间的时候不排除（因为原先的单个 md 已用空间只有 128k/256k）
 disk_size1=($( LANG=C df -hPl | grep -wvE '\-|none|tmpfs|overlay|shm|udev|devtmpfs|by-uuid|chroot|Filesystem|docker|md[0-9]+/[a-z]*' | awk '{print $2}' ))
 disk_size2=($( LANG=C df -hPl | grep -wvE '\-|none|tmpfs|overlay|shm|udev|devtmpfs|by-uuid|chroot|Filesystem|docker|md[0-9]+/[a-z]*' | awk '{print $3}' ))
-#shellcheck disable=SC2068
 disk_total_size=$( calc_disk ${disk_size1[@]} )
-#shellcheck disable=SC2068
 disk_used_size=$( calc_disk ${disk_size2[@]} )
-
-# 事实上 VPS 可能也有独立的硬盘，不过我懒得管他了...
 rm -f $HOME/.abench/disk.info
 if [[ $EUID = 0 ]] && [[ "$virtual" == "No Virtualization Detected" ]]; then
     echo -n "${bold}"
@@ -110,23 +78,18 @@ if [[ $EUID = 0 ]] && [[ "$virtual" == "No Virtualization Detected" ]]; then
 else
     disk_check_no_root
 fi
-
-
-
 function sed_disk_num () {
     while read line ; do echo "$line" | sed -e "s|^disk-|  第 |g" -e "s|text \([0-9]\{1,\}\)|块硬盘           ${cyan}通电 \1 小时，型号|g" -e "s|$|&${jiacu}|g" ; done
 }
-
 function _show_disk_info () {
     if [[ $(cat $HOME/.abench/disk.info 2>/dev/null | sed -n '1p' | awk '{print $3}' | grep -Ev [A-Z] | grep -oE "[0-9]+") ]]; then
         disk_num=$( cat $HOME/.abench/disk.info 2>/dev/null | wc -l ) ; [[ $debug == 1 ]] && echo -e "disk_num=$disk_num"
         if [[ $disk_num == 1 ]]; then
             echo -e  "  硬盘信息              ${cyan}通电 $(cat $HOME/.abench/disk.info 2>/dev/null | sed -n '1p' | awk '{print $3}') 小时，型号 $(cat $HOME/.abench/disk.info 2>/dev/null | sed -n '1p' | awk '{print $4,$5,$6,$7}')${jiacu}"
         elif [[ $disk_num -ge 2 ]]; then
-        #   echo -e  "  第一块硬盘            ${cyan}通电 $(cat $HOME/.abench/disk.info 2>/dev/null | sed -n '1p' | awk '{print $3}') 小时，型号 $(cat $HOME/.abench/disk.info 2>/dev/null | sed -n '1p' | awk '{print $4,$5,$6,$7}')${jiacu}"
             cat $HOME/.abench/disk.info | sed_disk_num
         fi
-    else # 这个写得太矬了，以后再改
+    else 
         if [[ $disk_model_num == 1 ]]; then
             echo -e  "  硬盘型号              ${cyan}$(cat $HOME/.abench/disk.info.2 2>/dev/null | sed -n '1p' | sed 's/$/                  /' | cut -c -27)${cyan} × $disk_model_1_num${jiacu}"
         elif [[ $disk_model_num -ge 2 ]]; then
@@ -157,84 +120,1141 @@ function _show_disk_info () {
         fi
     fi
 }
+    hostname=$(hostname)
+    cpu_aes=$(grep -i 'aes' /proc/cpuinfo)
+    cpu_virt=$(grep -Ei 'vmx|svm' /proc/cpuinfo)
+    if [[ -n "$cpu_aes" ]]; then
+  aes_status="✓ Enabled"
+  aes_translation=$(translate "Enabled")
+  aes_translation="${aes_translation:-Enabled}"
+  aes_status="$aes_translation ($aes_status)"
+  aes_status=$(_green "$aes_status")
+else
+  aes_status="✗ Disabled"
+  aes_translation=$(translate "Disabled")
+  aes_translation="${aes_translation:-Disabled}"
+  aes_status="$aes_translation ($aes_status)"
+  aes_status=$(_red "$aes_status")
+fi
 
+if [ -n "$cpu_virt" ]; then
+  virt_status="✓ Enabled"
+  virt_translation=$(translate "Enabled")
+  virt_translation="${virt_translation:-Enabled}"
+  virt_status="$virt_translation ($virt_status)"
+  virt_status=$(_green "$virt_status")
+else
+  virt_status="✗ Disabled"
+  virt_translation=$(translate "Disabled")
+  virt_translation="${virt_translation:-Disabled}"
+  virt_status="$virt_translation ($virt_status)"
+  virt_status=$(_red "$virt_status")
+fi
+country="$(wget -q -T10 -O- ipinfo.io/country)"
+ipv4_check=$( (ping -4 -c 1 -W 4 ipv4.google.com >/dev/null 2>&1 && echo true) || ${ip_check_cmd} -4 icanhazip.com 2> /dev/null)
+ipv6_check=$( (ping -6 -c 1 -W 4 ipv6.google.com >/dev/null 2>&1 && echo true) || ${ip_check_cmd} -6 icanhazip.com 2> /dev/null)
+[[ -z "$ipv4_check" ]] && online="$(_red "\xe2\x9c\x97 Offline")" || online="$(_green "\xe2\x9c\x93 Online")"
+[[ -z "$ipv6_check" ]] && online+=" / $(_red "\xe2\x9c\x97 Offline")" || online+=" / $(_green "\xe2\x9c\x93 Online")"
+uptimes=$( awk '{a=$1/86400;b=($1%86400)/3600;c=($1%3600)/60} {printf("%d 天 %d 时 %d 分\n",a,b,c)}' /proc/uptime )
+#======================================================
+# 检测 IPv4 IPv6 信息
+check_system_ip() {
+#  IP4=$(wget -4 -qO- --no-check-certificate --user-agent=Mozilla --tries=2 --timeout=1 http://ip-api.com/json/) &&
+#  WAN4=$(expr "$IP4" : '.*query\":[ ]*\"\([^"]*\).*') &&
+   IP4=$(wget -4 -qO- --no-check-certificate --user-agent=Mozilla --tries=2 --timeout=1 https://api.ip.sb/geoip) &&
+   WAN4=$(expr "$IP4" : '.*ip\":[ ]*\"\([^"]*\).*') &&
+  COUNTRY4=$(expr "$IP4" : '.*country\":[ ]*\"\([^"]*\).*') &&
+  ASNORG4=$(expr "$IP4" : '.*isp\":[ ]*\"\([^"]*\).*') &&
+  [[ -n "$COUNTRY4" ]] && COUNTRY4=$(translate "$COUNTRY4")
 
+  IP6=$(wget -6 -qO- --no-check-certificate --user-agent=Mozilla --tries=2 --timeout=1 https://api.ip.sb/geoip) &&
+  WAN6=$(expr "$IP6" : '.*ip\":[ ]*\"\([^"]*\).*') &&
+  COUNTRY6=$(expr "$IP6" : '.*country\":[ ]*\"\([^"]*\).*') &&
+  ASNORG6=$(expr "$IP6" : '.*isp\":[ ]*\"\([^"]*\).*') &&
+  [[ -n "$COUNTRY6" ]] && COUNTRY6=$(translate "$COUNTRY6")
+}
+check_system_ip
+#################################################
+checkstem_ip() {
+#!/bin/bash
+Font_B="\033[1m"
+Font_D="\033[2m"
+Font_I="\033[3m"
+Font_U="\033[4m"
+Font_Black="\033[30m"
+Font_Red="\033[31m"
+Font_Green="\033[32m"
+Font_Yellow="\033[33m"
+Font_Blue="\033[34m"
+Font_Purple="\033[35m"
+Font_Cyan="\033[36m"
+Font_White="\033[37m"
+Back_Black="\033[40m"
+Back_Red="\033[41m"
+Back_Green="\033[42m"
+Back_Yellow="\033[43m"
+Back_Blue="\033[44m"
+Back_Purple="\033[45m"
+Back_Cyan="\033[46m"
+Back_White="\033[47m"
+Font_Suffix="\033[0m"
+Font_LineClear="\033[2K"
+declare IP=""
+declare IPhide
+declare LANG="cn"
+declare -A maxmind
+declare -A ipinfo
+declare -A scamalytics
+declare -A ipregistry
+declare -A ipapi
+declare -A abuseipdb
+declare -A ip2location
+declare -A dbip
+declare -A ipwhois
+declare -A ipdata
+declare -A ipqs
+declare IPV4
+declare IPV6
+declare IPV4work=0
+declare IPV6work=0
+declare IPV4test=""
+declare IPV6test=""
+declare ERRORcode=0
+declare -A swarn
+declare -A sinfo
+declare -A shead
+declare -A sbasic
+declare -A stype
+declare -A sscore
+declare -A sfactor
+declare -A smedia
+declare -A smail
+declare -A stail
+declare ibar=0
+declare bar_pid
+declare ibar_step=0
+declare main_pid=$$
+declare PADDING=""
+declare useNIC=""
+declare usePROXY=""
+declare UA_Browser
+set_language(){
+case "$LANG" in
+"cn")sinfo[database]="正在检测IP数据库 "
+sinfo[ldatabase]=17
+sinfo[lmedia]=21
+sinfo[lai]=17
+sinfo[ldnsbl]=21
+shead[ltitle]=16
+sbasic[type]="IP类型：             "
+sbasic[type0]=" 原生IP "
+sbasic[type1]=" 广播IP "
+stype[business]="   $Back_Yellow$Font_White$Font_B 商业 $Font_Suffix   "
+stype[isp]="   $Back_Green$Font_White$Font_B 家宽 $Font_Suffix   "
+stype[hosting]="   $Back_Red$Font_White$Font_B 机房 $Font_Suffix   "
+stype[education]="   $Back_Yellow$Font_White$Font_B 教育 $Font_Suffix   "
+stype[government]="   $Back_Yellow$Font_White$Font_B 政府 $Font_Suffix   "
+stype[banking]="   $Back_Yellow$Font_White$Font_B 银行 $Font_Suffix   "
+stype[organization]="   $Back_Yellow$Font_White$Font_B 组织 $Font_Suffix   "
+stype[military]="   $Back_Yellow$Font_White$Font_B 军队 $Font_Suffix   "
+stype[library]="  $Back_Yellow$Font_White$Font_B 图书馆 $Font_Suffix  "
+stype[cdn]="   $Back_Red$Font_White$Font_B CDN $Font_Suffix    "
+stype[lineisp]="   $Back_Green$Font_White$Font_B 家宽 $Font_Suffix   "
+stype[mobile]="   $Back_Green$Font_White$Font_B 手机 $Font_Suffix   "
+stype[spider]="   $Back_Red$Font_White$Font_B 蜘蛛 $Font_Suffix   "
+stype[reserved]="   $Back_Yellow$Font_White$Font_B 保留 $Font_Suffix   "
+stype[other]="   $Back_Yellow$Font_White$Font_B 其他 $Font_Suffix   "
+stype[title]="二、IP类型属性"
+stype[db]="数据库：   "
+stype[usetype]="使用类型： "
+stype[comtype]="公司类型： "
+sscore[verylow]="$Font_Green$Font_B极低风险$Font_Suffix"
+sscore[low]="$Font_Green$Font_B低风险$Font_Suffix"
+sscore[medium]="$Font_Yellow$Font_B中风险$Font_Suffix"
+sscore[high]="$Font_Red$Font_B高风险$Font_Suffix"
+sscore[veryhigh]="$Font_Red$Font_B极高风险$Font_Suffix"
+sscore[elevated]="$Font_Yellow$Font_B较高风险$Font_Suffix"
+sscore[suspicious]="$Font_Yellow$Font_B可疑IP$Font_Suffix"
+sscore[risky]="$Font_Red$Font_B存在风险$Font_Suffix"
+sscore[highrisk]="$Font_Red$Font_B高风险$Font_Suffix"
+sscore[dos]="$Font_Red$Font_B建议封禁$Font_Suffix"
+sscore[colon]="："
+sscore[title]="三、风险评分"
+sscore[range]="$Font_Cyan风险等级：      $Font_I$Font_White$Back_Green极低         低 $Back_Yellow      中等      $Back_Red 高         极高$Font_Suffix"
+;;
+*)echo -ne "ERROR: Language not supported!"
+esac
+}
+show_progress_bar(){
+local bar="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+local n="${#bar}"
+while sleep 0.1;do
+if ! kill -0 $main_pid 2>/dev/null;then
+exit
+fi
+echo -ne "\r$Font_Cyan$Font_B# $1$Font_Cyan$Font_B$(printf '%*s' "$2" ''|tr ' ' '.') ${bar:ibar++%n:1} $(printf '%02d%%' $ibar_step) $Font_Suffix"
+done
+}
+kill_progress_bar(){
+kill "$bar_pid" 2>/dev/null&&echo -ne "\r"
+}
+install_dependencies(){
+if ! jq --version >/dev/null 2>&1||! curl --version >/dev/null 2>&1||! bc --version >/dev/null 2>&1||! nc -h >/dev/null 2>&1||! dig -v >/dev/null 2>&1||! ip -Version >/dev/null 2>&1;then
+echo "Detecting Linux distribution..."
+if [ -f /etc/os-release ];then
+. /etc/os-release
+if [ $(id -u) -ne 0 ]&&! command -v sudo >/dev/null 2>&1;then
+ERRORcode=3
+fi
+case $ID in
+ubuntu|debian|linuxmint)install_packages "apt" "apt-get install -y"
+;;
+fedora|rhel|centos|almalinux|rocky)if
+[ "$(echo $VERSION_ID|cut -d '.' -f1)" -ge 8 ]
+then
+install_packages "dnf" "dnf install -y"
+else
+install_packages "yum" "yum install -y"
+fi
+;;
+arch|manjaro)install_packages "pacman" "pacman -S --noconfirm"
+;;
+alpine)install_packages "apk" "apk add"
+;;
+*)echo "Unsupported distribution: $ID"
+exit 1
+esac
+elif [ -n "$PREFIX" ];then
+install_packages "pkg" "pkg install"
+else
+echo "Cannot detect distribution because /etc/os-release is missing."
+exit 1
+fi
+fi
+}
+install_packages(){
+local package_manager=$1
+local install_command=$2
+echo "Using package manager: $package_manager"
+if [ $(id -u) -eq 0 ];then
+local usesudo=""
+else
+local usesudo="sudo"
+fi
+case $package_manager in
+apt)$usesudo apt update
+$usesudo $install_command jq curl bc netcat-openbsd dnsutils iproute2
+;;
+dnf)$usesudo dnf install epel-release -y
+$usesudo $package_manager makecache
+$usesudo $install_command jq curl bc nmap-ncat bind-utils iproute
+;;
+yum)$usesudo yum install epel-release -y
+$usesudo $package_manager makecache
+$usesudo $install_command jq curl bc nmap-ncat bind-utils iproute
+;;
+pacman)$usesudo pacman -Sy
+$usesudo $install_command jq curl bc gnu-netcat bind-tools iproute2
+;;
+apk)$usesudo apk update
+$usesudo $install_command jq curl bc netcat-openbsd grep bind-tools iproute2
+;;
+pkg)$usesudo $package_manager update
+$usesudo $package_manager $install_command jq curl bc netcat dnsutils iproute
+esac
+}
+declare -A browsers=(
+[Chrome]="87.0.4280.66 88.0.4324.150 89.0.4389.82"
+[Firefox]="83.0 84.0 85.0"
+[Edge]="88.0.705.50 89.0.774.57")
+generate_random_user_agent(){
+local browsers_keys=(${!browsers[@]})
+local random_browser_index=$((RANDOM%${#browsers_keys[@]}))
+local browser=${browsers_keys[random_browser_index]}
+local versions=(${browsers[$browser]})
+local random_version_index=$((RANDOM%${#versions[@]}))
+local version=${versions[random_version_index]}
+case $browser in
+Chrome)UA_Browser="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/$version Safari/537.36"
+;;
+Firefox)UA_Browser="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:${version%%.*}) Gecko/20100101 Firefox/$version"
+;;
+Edge)UA_Browser="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version%.*}.0.0 Safari/537.36 Edg/$version"
+esac
+}
+is_valid_ipv4(){
+if [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]];then
+IPV4work=1
+return 0
+else
+IPV4work=0
+return 1
+fi
+}
+is_private_ipv4(){
+local ip_address=$1
+if [[ -z $ip_address ]];then
+return 0
+fi
+if [[ $ip_address =~ ^10\. ]]||[[ $ip_address =~ ^172\.(1[6-9]|2[0-9]|3[0-1])\. ]]||[[ $ip_address =~ ^192\.168\. ]]||[[ $ip_address =~ ^127\. ]]||[[ $ip_address =~ ^0\. ]]||[[ $ip_address =~ ^22[4-9]\. ]]||[[ $ip_address =~ ^23[0-9]\. ]];then
+return 0
+fi
+return 1
+}
+get_ipv4(){
+local response
+IPV4=$(ip -4 addr show|grep global|awk '{print $2}'|cut -d '/' -f1|head -n 1)
+if [[ -n $IPV4 ]];then
+IPV4=""
+local API_NET=("myip.check.place" "ipv4.ip.sb" "ipget.net" "ip.ping0.cc" "https://ip4.seeip.org" "https://api.my-ip.io/ip" "https://ipv4.icanhazip.com" "api.ipify.org")
+for p in "${API_NET[@]}";do
+response=$(curl $CurlARG -s4 --max-time 8 "$p")
+if [[ $? -eq 0 && ! $response =~ error ]];then
+IPV4="$response"
+break
+fi
+done
+fi
+}
+hide_ipv4(){
+if [[ -n $1 ]];then
+IFS='.' read -r -a ip_parts <<<"$1"
+IPhide="${ip_parts[0]}.${ip_parts[1]}.*.*"
+else
+IPhide=""
+fi
+}
+is_valid_ipv6(){
+if [[ $1 =~ ^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$ ]];then
+IPV6work=1
+return 0
+else
+IPV6work=0
+return 1
+fi
+}
+is_private_ipv6(){
+local address=$1
+if [[ -z $address ]];then
+return 0
+fi
+if [[ $address =~ ^fe80: ]]||[[ $address =~ ^fc00: ]]||[[ $address =~ ^fd00: ]]||[[ $address =~ ^2001:db8: ]]||[[ $address == ::1 ]]||[[ $address =~ ^::ffff: ]]||[[ $address =~ ^2002: ]]||[[ $address =~ ^2001: ]];then
+return 0
+fi
+return 1
+}
+get_ipv6(){
+local response
+IPV6=$(ip -6 addr show|grep global|awk '{print $2}'|cut -d '/' -f1|head -n 1)
+if [[ -n $IPV6 ]];then
+IPV6=""
+local API_NET=("myip.check.place" "ipv6.ip.sb" "https://ipget.net" "ipv6.ping0.cc" "https://api.my-ip.io/ip" "https://ipv6.icanhazip.com")
+for p in "${API_NET[@]}";do
+response=$(curl $CurlARG -s6k --max-time 8 "$p")
+if [[ $? -eq 0 && ! $response =~ error ]];then
+IPV6="$response"
+break
+fi
+done
+fi
+}
+hide_ipv6(){
+if [[ -n $1 ]];then
+local expanded_ip=$(echo "$1"|sed 's/::/:0000:0000:0000:0000:0000:0000:0000:0000:/g'|cut -d ':' -f1-8)
+IFS=':' read -r -a ip_parts <<<"$expanded_ip"
+while [ ${#ip_parts[@]} -lt 8 ];do
+ip_parts+=(0000)
+done
+IPhide="${ip_parts[0]:-0}:${ip_parts[1]:-0}:${ip_parts[2]:-0}:*:*:*:*:*"
+IPhide=$(echo "$IPhide"|sed 's/:0\{1,\}/:/g'|sed 's/::\+/:/g')
+else
+IPhide=""
+fi
+}
+calculate_display_width(){
+local string="$1"
+local length=0
+local char
+for ((i=0; i<${#string}; i++));do
+char=${string:i:1}
+if LC_CTYPE=C printf '%s' "$char"|grep -qP '[\x80-\xFF]';then
+length=$((length+2))
+else
+length=$((length+1))
+fi
+done
+echo "$length"
+}
+calc_padding(){
+local input_text="$1"
+local total_width=$2
+local title_length=$(calculate_display_width "$input_text")
+local left_padding=$(((total_width-title_length)/2))
+if [[ $left_padding -gt 0 ]];then
+PADDING=$(printf '%*s' $left_padding)
+else
+PADDING=""
+fi
+}
+generate_dms(){
+local lat=$1
+local lon=$2
+if [[ -z $lat || $lat == "null" || -z $lon || $lon == "null" ]];then
+return
+fi
+convert_single(){
+local coord=$1
+local direction=$2
+local fixed_coord=$(echo "$coord"|sed 's/\.$/.0/')
+local degrees=$(echo "$fixed_coord"|cut -d'.' -f1)
+local fractional="0.$(echo "$fixed_coord"|cut -d'.' -f2)"
+local minutes=$(echo "$fractional * 60"|bc -l|cut -d'.' -f1)
+local seconds_fractional="0.$(echo "$fractional * 60"|bc -l|cut -d'.' -f2)"
+local seconds=$(echo "$seconds_fractional * 60"|bc -l|awk '{printf "%.0f", $1}')
+echo "$degrees°$minutes′$seconds″$direction"
+}
+local lat_dir='N'
+if [[ $(echo "$lat < 0"|bc -l) -eq 1 ]];then
+lat_dir='S'
+lat=$(echo "$lat * -1"|bc -l)
+fi
+local lon_dir='E'
+if [[ $(echo "$lon < 0"|bc -l) -eq 1 ]];then
+lon_dir='W'
+lon=$(echo "$lon * -1"|bc -l)
+fi
+local lat_dms=$(convert_single $lat $lat_dir)
+local lon_dms=$(convert_single $lon $lon_dir)
+echo "$lon_dms, $lat_dms"
+}
+generate_googlemap_url(){
+local lat=$1
+local lon=$2
+local radius=$3
+if [[ -z $lat || $lat == "null" || -z $lon || $lon == "null" || -z $radius || $radius == "null" ]];then
+return
+fi
+local zoom_level=15
+if [[ $radius -gt 1000 ]];then
+zoom_level=12
+elif [[ $radius -gt 500 ]];then
+zoom_level=13
+elif [[ $radius -gt 250 ]];then
+zoom_level=14
+fi
+echo "https://check.place/$lat,$lon,$zoom_level,$LANG"
+}
+db_maxmind(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}Maxmind $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-8-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+maxmind=()
+local RESPONSE=$(curl $CurlARG -Ls -m 10 "https://ipinfo.check.place/$IP?lang=$LANG")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+maxmind[asn]=$(echo "$RESPONSE"|jq -r '.ASN.AutonomousSystemNumber')
+maxmind[org]=$(echo "$RESPONSE"|jq -r '.ASN.AutonomousSystemOrganization')
+maxmind[city]=$(echo "$RESPONSE"|jq -r '.City.Name')
+maxmind[post]=$(echo "$RESPONSE"|jq -r '.City.PostalCode')
+maxmind[lat]=$(echo "$RESPONSE"|jq -r '.City.Latitude')
+maxmind[lon]=$(echo "$RESPONSE"|jq -r '.City.Longitude')
+maxmind[rad]=$(echo "$RESPONSE"|jq -r '.City.AccuracyRadius')
+maxmind[dms]=$(generate_dms "${maxmind[lat]}" "${maxmind[lon]}")
+maxmind[map]=$(generate_googlemap_url "${maxmind[lat]}" "${maxmind[lon]}" "${maxmind[rad]}")
+maxmind[continentcode]=$(echo "$RESPONSE"|jq -r '.City.Continent.Code')
+maxmind[continent]=$(echo "$RESPONSE"|jq -r '.City.Continent.Name')
+maxmind[citycountrycoad]=$(echo "$RESPONSE"|jq -r '.City.Country.IsoCode')
+maxmind[citycountry]=$(echo "$RESPONSE"|jq -r '.City.Country.Name')
+maxmind[timezone]=$(echo "$RESPONSE"|jq -r '.City.Location.TimeZone')
+maxmind[subcode]=$(echo "$RESPONSE"|jq -r 'if .City.Subdivisions | length > 0 then .City.Subdivisions[0].IsoCode else "N/A" end')
+maxmind[sub]=$(echo "$RESPONSE"|jq -r 'if .City.Subdivisions | length > 0 then .City.Subdivisions[0].Name else "N/A" end')
+maxmind[countrycode]=$(echo "$RESPONSE"|jq -r '.Country.IsoCode')
+maxmind[country]=$(echo "$RESPONSE"|jq -r '.Country.Name')
+maxmind[regcountrycode]=$(echo "$RESPONSE"|jq -r '.Country.RegisteredCountry.IsoCode')
+maxmind[regcountry]=$(echo "$RESPONSE"|jq -r '.Country.RegisteredCountry.Name')
 
-
-
-io_bench() {
-    if [[ $test_iops == 1 ]] || [[ $raidcard == NVMe ]]; then
-        [[ $EUID != 0 ]] && echo -e "  ${JG} 建议使用 root 权限来运行本脚本的 fio 测试！${normal}\n"
-        [[ $raidcard == NVMe ]] && echo -e "  ${ZY} 检测到你使用的是 NVMe 硬盘，使用 fio 代替 dd 进行测试${normal}\n"
-        bash <(wget -qO- https://github.com/amefs/fio-bench/raw/master/fio-bench_zh-cn.sh -o /dev/null) -o /tmp/fio-bench.txt
-      # echo -ne "${yellow}${bold}" ; cat /tmp/fio-bench.txt | tail -n +2 | sed "s/Test Item/测试项目 /" | sed -e "s|^|  |"
-      # cat /tmp/fio-bench.txt | tail -n +2 | sed -r -e "s/Test Item/${cyan}测试项目${normal} /" -e "s|^|  |" -e "s|(\b[0-9.]+\b)|${yellow}\1${normal}|g" -e "s|([GMK]B/s)|${yellow}\1${normal}|g" -e "s/([读写速IP][取入度OS])/${cyan}\1${normal}/g" -e "s/-Q32T1/${cyan}-Q32T1${normal}/g" -e "s/4K/${cyan}4K${normal}/g" -e "s/Seq/${cyan}Seq${normal}/g"
-      # echo -e "${normal}"
-        if [[ -f /tmp/fio-bench.txt ]]; then
-            _menu
-            cat /tmp/fio-bench.txt | tail -n +2 | sed -r -e "s/Test Item/测试项目 /" -e "s|^|  |" \
-            -e "s|(\b[0-9.]+\b)|${yellow}\1${normal}|g" -e "s|([GMK]B/s)|${yellow}\1${normal}|g"
-        fi
-    else
-        [[ $SSD == yes ]] && [[ $EUID == 0 ]] && echo -e "  ${ZY} 检测到你服务器里有固态硬盘，建议使用 fio 代替 dd 进行测试${normal}" &&
-        echo -e "              ${blue}${bold}bash <(wget -qO- git.io/ceshi) -j${normal}\n"
-        echo -n "  顺序写入 (1st)        " ; dd_write_1=$(dd_benchmark) ; echo -e "${yellow}$(echo $dd_write_1 | Bps_to_MBps)${normal}"
-        echo -n "  顺序写入 (2nd)        " ; dd_write_2=$(dd_benchmark) ; echo -e "${yellow}$(echo $dd_write_2 | Bps_to_MBps)${normal}"
-        echo -n "  顺序写入 (3rd)        " ; dd_write_3=$(dd_benchmark) ; echo -e "${yellow}$(echo $dd_write_3 | Bps_to_MBps)${normal}"
-        echo -n "  顺序写入 (4th)        " ; dd_write_4=$(dd_benchmark) ; echo -e "${yellow}$(echo $dd_write_4 | Bps_to_MBps)${normal}"
-        echo -n "  顺序写入 (5th)        " ; dd_write_5=$(dd_benchmark) ; echo -e "${yellow}$(echo $dd_write_5 | Bps_to_MBps)${normal}"
-        ddsum=$(echo -e "$dd_write_1\\n$dd_write_2\\n$dd_write_3\\n$dd_write_4\\n$dd_write_5" | awk 'BEGIN{max="'$first_num'";min="'first_num'"}{if($1>max){max=$1};if($1<min){min=$1}}END{print '$dd_write_1'+'$dd_write_2'+'$dd_write_3'+'$dd_write_4'+'$dd_write_5'-max-min}')
-        ddavg=$(awk 'BEGIN{printf "%.1f", '$ddsum' / 3}')
-        # 去掉了最高值和最低值后的平均速度
-        echo -n "  顺序写入 (avg)        " ; echo -e "${yellow}$(echo $ddavg | Bps_to_MBps_1f)${normal}"
-    fi
-    echo
+if [[ ${maxmind[lat]} != "null" && ${maxmind[lon]} != "null" ]];then
+maxmind[dms]=$(generate_dms "${maxmind[lat]}" "${maxmind[lon]}")
+maxmind[map]=$(generate_googlemap_url "${maxmind[lat]}" "${maxmind[lon]}" "${maxmind[rad]}")
+else
+maxmind[dms]="null"
+maxmind[map]="null"
+fi
+}
+db_ipinfo(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}IPinfo $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-7-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ipinfo=()
+local RESPONSE=$(curl $CurlARG -Ls -m 10 "https://ipinfo.io/widget/demo/$IP")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ipinfo[usetype]=$(echo "$RESPONSE"|jq -r '.data.asn.type')
+ipinfo[comtype]=$(echo "$RESPONSE"|jq -r '.data.company.type')
+shopt -s nocasematch
+case ${ipinfo[usetype]} in
+"business")ipinfo[susetype]="${stype[business]}"
+;;
+"isp")ipinfo[susetype]="${stype[isp]}"
+;;
+"hosting")ipinfo[susetype]="${stype[hosting]}"
+;;
+"education")ipinfo[susetype]="${stype[education]}"
+;;
+*)ipinfo[susetype]="${stype[other]}"
+esac
+case ${ipinfo[comtype]} in
+"business")ipinfo[scomtype]="${stype[business]}"
+;;
+"isp")ipinfo[scomtype]="${stype[isp]}"
+;;
+"hosting")ipinfo[scomtype]="${stype[hosting]}"
+;;
+"education")ipinfo[scomtype]="${stype[education]}"
+;;
+*)ipinfo[scomtype]="${stype[other]}"
+esac
+shopt -u nocasematch
+ipinfo[countrycode]=$(echo "$RESPONSE"|jq -r '.data.country')
+ipinfo[proxy]=$(echo "$RESPONSE"|jq -r '.data.privacy.proxy')
+ipinfo[tor]=$(echo "$RESPONSE"|jq -r '.data.privacy.tor')
+ipinfo[vpn]=$(echo "$RESPONSE"|jq -r '.data.privacy.vpn')
+ipinfo[server]=$(echo "$RESPONSE"|jq -r '.data.privacy.hosting')
+}
+db_scamalytics(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}SCAMALYTICS $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-12-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+scamalytics=()
+local RESPONSE=$(curl $CurlARG -sL -H "Referer: https://scamalytics.com" -m 10 "https://scamalytics.com/ip/$IP")
+[[ -z $RESPONSE ]]&&return 1
+local tmpscore=$(echo "$RESPONSE"|grep -oP '(?<=>Fraud Score: )[^<]+')
+scamalytics[score]=$(echo "$tmpscore"|bc)
+if [[ ${scamalytics[score]} -lt 25 ]];then
+scamalytics[risk]="${sscore[low]}"
+elif [[ ${scamalytics[score]} -lt 50 ]];then
+scamalytics[risk]="${sscore[medium]}"
+elif [[ ${scamalytics[score]} -lt 75 ]];then
+scamalytics[risk]="${sscore[high]}"
+elif [[ ${scamalytics[score]} -ge 75 ]];then
+scamalytics[risk]="${sscore[veryhigh]}"
+fi
+scamalytics[countrycode]=$(echo "$RESPONSE"|grep -A1 "<th>Country Code</th>"|awk -F'</?td>' '/<td>/ {print $2}')
+scamalytics[vpn]=$(echo "$RESPONSE"|grep -A1 'Anonymizing VPN'|tail -n1|grep -oP '>(Yes|No)<'|sed 's/>Yes</true/;s/>No</false/')
+scamalytics[tor]=$(echo "$RESPONSE"|grep -A1 'Tor Exit Node'|tail -n1|grep -oP '>(Yes|No)<'|sed 's/>Yes</true/;s/>No</false/')
+scamalytics[server]=$(echo "$RESPONSE"|grep -A1 'Server'|tail -n1|grep -oP '>(Yes|No)<'|sed 's/>Yes</true/;s/>No</false/')
+scamalytics[proxy1]=$(echo "$RESPONSE"|grep -A1 'Public Proxy'|tail -n1|grep -oP '>(Yes|No)<'|sed 's/>Yes</true/;s/>No</false/')
+scamalytics[proxy2]=$(echo "$RESPONSE"|grep -A1 'Web Proxy'|tail -n1|grep -oP '>(Yes|No)<'|sed 's/>Yes</true/;s/>No</false/')
+scamalytics[proxy]="true"
+[[ ${scamalytics[proxy1]} == "false" && ${scamalytics[proxy2]} == "false" ]]&&scamalytics[proxy]="false"
+scamalytics[robot]=$(echo "$RESPONSE"|grep -A1 'Search Engine Robot'|tail -n1|grep -oP '>(Yes|No)<'|sed 's/>Yes</true/;s/>No</false/')
+}
+db_ipregistry(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}ipregistry $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-11-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ipregistry=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://ipinfo.check.place/$IP?db=ipregistry")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ipregistry[usetype]=$(echo "$RESPONSE"|jq -r '.connection.type')
+ipregistry[comtype]=$(echo "$RESPONSE"|jq -r '.company.type')
+shopt -s nocasematch
+case ${ipregistry[usetype]} in
+"business")ipregistry[susetype]="${stype[business]}"
+;;
+"isp")ipregistry[susetype]="${stype[isp]}"
+;;
+"hosting")ipregistry[susetype]="${stype[hosting]}"
+;;
+"education")ipregistry[susetype]="${stype[education]}"
+;;
+"government")ipregistry[susetype]="${stype[government]}"
+;;
+*)ipregistry[susetype]="${stype[other]}"
+esac
+case ${ipregistry[comtype]} in
+"business")ipregistry[scomtype]="${stype[business]}"
+;;
+"isp")ipregistry[scomtype]="${stype[isp]}"
+;;
+"hosting")ipregistry[scomtype]="${stype[hosting]}"
+;;
+"education")ipregistry[scomtype]="${stype[education]}"
+;;
+"government")ipregistry[scomtype]="${stype[government]}"
+;;
+*)ipregistry[scomtype]="${stype[other]}"
+esac
+shopt -u nocasematch
+ipregistry[countrycode]=$(echo "$RESPONSE"|jq -r '.location.country.code')
+ipregistry[proxy]=$(echo "$RESPONSE"|jq -r '.security.is_proxy')
+ipregistry[tor1]=$(echo "$RESPONSE"|jq -r '.security.is_tor')
+ipregistry[tor2]=$(echo "$RESPONSE"|jq -r '.security.is_tor_exit')
+ipregistry[tor]="true"
+[[ ${ipregistry[tor1]} == "false" && ${ipregistry[tor2]} == "false" ]]&&ipregistry[tor]="false"
+ipregistry[vpn]=$(echo "$RESPONSE"|jq -r '.security.is_vpn')
+ipregistry[server]=$(echo "$RESPONSE"|jq -r '.security.is_cloud_provider')
+ipregistry[abuser]=$(echo "$RESPONSE"|jq -r '.security.is_abuser')
+}
+db_ipapi(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}ipapi $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-6-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ipapi=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://api.ipapi.is/?q=$IP")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ipapi[usetype]=$(echo "$RESPONSE"|jq -r '.asn.type')
+ipapi[comtype]=$(echo "$RESPONSE"|jq -r '.company.type')
+shopt -s nocasematch
+case ${ipapi[usetype]} in
+"business")ipapi[susetype]="${stype[business]}"
+;;
+"isp")ipapi[susetype]="${stype[isp]}"
+;;
+"hosting")ipapi[susetype]="${stype[hosting]}"
+;;
+"education")ipapi[susetype]="${stype[education]}"
+;;
+"government")ipapi[susetype]="${stype[government]}"
+;;
+"banking")ipapi[susetype]="${stype[banking]}"
+;;
+*)ipapi[susetype]="${stype[other]}"
+esac
+case ${ipapi[comtype]} in
+"business")ipapi[scomtype]="${stype[business]}"
+;;
+"isp")ipapi[scomtype]="${stype[isp]}"
+;;
+"hosting")ipapi[scomtype]="${stype[hosting]}"
+;;
+"education")ipapi[scomtype]="${stype[education]}"
+;;
+"government")ipapi[scomtype]="${stype[government]}"
+;;
+"banking")ipapi[scomtype]="${stype[banking]}"
+;;
+*)ipapi[scomtype]="${stype[other]}"
+esac
+[[ -z $RESPONSE ]]&&return 1
+ipapi[scoretext]=$(echo "$RESPONSE"|jq -r '.company.abuser_score')
+ipapi[scorenum]=$(echo "${ipapi[scoretext]}"|awk '{print $1}')
+ipapi[risktext]=$(echo "${ipapi[scoretext]}"|awk -F'[()]' '{print $2}')
+ipapi[score]=$(awk "BEGIN {printf \"%.2f%%\", ${ipapi[scorenum]} * 100}")
+case ${ipapi[risktext]} in
+"Very Low")ipapi[risk]="${sscore[verylow]}"
+;;
+"Low")ipapi[risk]="${sscore[low]}"
+;;
+"Elevated")ipapi[risk]="${sscore[elevated]}"
+;;
+"High")ipapi[risk]="${sscore[high]}"
+;;
+"Very High")ipapi[risk]="${sscore[veryhigh]}"
+esac
+shopt -u nocasematch
+ipapi[countrycode]=$(echo "$RESPONSE"|jq -r '.location.country_code')
+ipapi[proxy]=$(echo "$RESPONSE"|jq -r '.is_proxy')
+ipapi[tor]=$(echo "$RESPONSE"|jq -r '.is_tor')
+ipapi[vpn]=$(echo "$RESPONSE"|jq -r '.is_vpn')
+ipapi[server]=$(echo "$RESPONSE"|jq -r '.is_datacenter')
+ipapi[abuser]=$(echo "$RESPONSE"|jq -r '.is_abuser')
+ipapi[robot]=$(echo "$RESPONSE"|jq -r '.is_crawler')
+}
+db_abuseipdb(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}AbuseIPDB $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-10-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+abuseipdb=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://ipinfo.check.place/$IP?db=abuseipdb")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+abuseipdb[usetype]=$(echo "$RESPONSE"|jq -r '.data.usageType')
+shopt -s nocasematch
+case ${abuseipdb[usetype]} in
+"Commercial")abuseipdb[susetype]="${stype[business]}"
+;;
+"Data Center/Web Hosting/Transit")abuseipdb[susetype]="${stype[hosting]}"
+;;
+"University/College/School")abuseipdb[susetype]="${stype[education]}"
+;;
+"Government")abuseipdb[susetype]="${stype[government]}"
+;;
+"banking")abuseipdb[susetype]="${stype[banking]}"
+;;
+"Organization")abuseipdb[susetype]="${stype[organization]}"
+;;
+"Military")abuseipdb[susetype]="${stype[military]}"
+;;
+"Library")abuseipdb[susetype]="${stype[library]}"
+;;
+"Content Delivery Network")abuseipdb[susetype]="${stype[cdn]}"
+;;
+"Fixed Line ISP")abuseipdb[susetype]="${stype[lineisp]}"
+;;
+"Mobile ISP")abuseipdb[susetype]="${stype[mobile]}"
+;;
+"Search Engine Spider")abuseipdb[susetype]="${stype[spider]}"
+;;
+"Reserved")abuseipdb[susetype]="${stype[reserved]}"
+;;
+*)abuseipdb[susetype]="${stype[other]}"
+esac
+shopt -u nocasematch
+abuseipdb[score]=$(echo "$RESPONSE"|jq -r '.data.abuseConfidenceScore')
+if [[ ${abuseipdb[score]} -lt 25 ]];then
+abuseipdb[risk]="${sscore[low]}"
+elif [[ ${abuseipdb[score]} -lt 75 ]];then
+abuseipdb[risk]="${sscore[high]}"
+elif [[ ${abuseipdb[score]} -ge 75 ]];then
+abuseipdb[risk]="${sscore[dos]}"
+fi
+}
+db_ip2location(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}IP2LOCATION $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-12-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ip2location=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.82 Safari/537.36" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9" -H "Accept-Language: en-US,en;q=0.9" "https://www.ip2location.io/$IP"|sed -n '/<code/,/<\/code>/p'|sed -e 's/<[^>]*>//g'|sed 's/^[\t]*//')
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ip2location[usetype]=$(echo "$RESPONSE"|jq -r '.usage_type')
+shopt -s nocasematch
+case ${ip2location[usetype]} in
+"COM")ip2location[susetype]="${stype[business]}"
+;;
+"DCH")ip2location[susetype]="${stype[hosting]}"
+;;
+"EDU")ip2location[susetype]="${stype[education]}"
+;;
+"GOV")ip2location[susetype]="${stype[government]}"
+;;
+"ORG")ip2location[susetype]="${stype[organization]}"
+;;
+"MIL")ip2location[susetype]="${stype[military]}"
+;;
+"LIB")ip2location[susetype]="${stype[library]}"
+;;
+"CDN")ip2location[susetype]="${stype[cdn]}"
+;;
+"ISP")ip2location[susetype]="${stype[lineisp]}"
+;;
+"MOB")ip2location[susetype]="${stype[mobile]}"
+;;
+"SES")ip2location[susetype]="${stype[spider]}"
+;;
+"RSV")ip2location[susetype]="${stype[reserved]}"
+;;
+*)ip2location[susetype]="${stype[other]}"
+esac
+shopt -u nocasematch
+ip2location[countrycode]=$(echo "$RESPONSE"|jq -r '.country_code')
+ip2location[proxy1]=$(echo "$RESPONSE"|jq -r '.proxy.is_public_proxy')
+ip2location[proxy2]=$(echo "$RESPONSE"|jq -r '.proxy.is_web_proxy')
+ip2location[proxy]="true"
+[[ ${ip2location[proxy1]} == "false" && ${ip2location[proxy2]} == "false" ]]&&ip2location[proxy]="false"
+ip2location[tor]=$(echo "$RESPONSE"|jq -r '.proxy.is_tor')
+ip2location[vpn]=$(echo "$RESPONSE"|jq -r '.proxy.is_vpn')
+ip2location[server]=$(echo "$RESPONSE"|jq -r '.proxy.is_data_center')
+ip2location[abuser]=$(echo "$RESPONSE"|jq -r '.proxy.is_spammer')
+ip2location[robot1]=$(echo "$RESPONSE"|jq -r '.proxy.is_web_crawler')
+ip2location[robot2]=$(echo "$RESPONSE"|jq -r '.proxy.is_scanner')
+ip2location[robot3]=$(echo "$RESPONSE"|jq -r '.proxy.is_botnet')
+ip2location[robot]="true"
+[[ ${ip2location[robot1]} == "false" && ${ip2location[robot2]} == "false" && ${ip2location[robot3]} == "false" ]]&&ip2location[robot]="false"
+}
+db_dbip(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}DB-IP $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-6-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+dbip=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://db-ip.com/demo/home.php?s=$IP")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+dbip[risktext]=$(echo "$RESPONSE"|jq -r '.demoInfo.threatLevel')
+shopt -s nocasematch
+case ${dbip[risktext]} in
+"low")dbip[risk]="${sscore[low]}"
+dbip[score]=0
+;;
+"medium")dbip[risk]="${sscore[medium]}"
+dbip[score]=50
+;;
+"high")dbip[risk]="${sscore[high]}"
+dbip[score]=100
+esac
+shopt -u nocasematch
+}
+db_ipwhois(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}IPWHOIS $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-8-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ipwhois=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://ipwhois.io/widget?ip=$IP&lang=en" --compressed \
+-H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0" \
+-H "Accept: */*" \
+-H "Accept-Language: zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2" \
+-H "Connection: keep-alive" \
+-H "Referer: https://ipwhois.io/" \
+-H "Sec-Fetch-Dest: empty" \
+-H "Sec-Fetch-Mode: cors" \
+-H "Sec-Fetch-Site: same-origin" \
+-H "TE: trailers")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ipwhois[countrycode]=$(echo "$RESPONSE"|jq -r '.country_code')
+ipwhois[proxy]=$(echo "$RESPONSE"|jq -r '.security.proxy')
+ipwhois[tor]=$(echo "$RESPONSE"|jq -r '.security.tor')
+ipwhois[vpn]=$(echo "$RESPONSE"|jq -r '.security.vpn')
+ipwhois[server]=$(echo "$RESPONSE"|jq -r '.security.hosting')
+}
+db_ipdata(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}ipdata $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-7-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ipdata=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://ipinfo.check.place/$IP?db=ipdata")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ipdata[countrycode]=$(echo "$RESPONSE"|jq -r '.country_code')
+ipdata[proxy]=$(echo "$RESPONSE"|jq -r '.threat.is_proxy')
+ipdata[tor]=$(echo "$RESPONSE"|jq -r '.threat.is_tor')
+ipdata[server]=$(echo "$RESPONSE"|jq -r '.threat.is_datacenter')
+ipdata[abuser1]=$(echo "$RESPONSE"|jq -r '.threat.is_threat')
+ipdata[abuser2]=$(echo "$RESPONSE"|jq -r '.threat.is_known_abuser')
+ipdata[abuser3]=$(echo "$RESPONSE"|jq -r '.threat.is_known_attacker')
+ipdata[abuser]="true"
+[[ ${ipdata[abuser1]} == "false" && ${ipdata[abuser2]} == "false" && ${ipdata[abuser3]} == "false" ]]&&ipdata[abuser]="false"
+}
+db_ipqs(){
+local temp_info="$Font_Cyan$Font_B${sinfo[database]}${Font_I}IPQS $Font_Suffix"
+((ibar_step+=3))
+show_progress_bar "$temp_info" $((40-5-${sinfo[ldatabase]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+ipqs=()
+local RESPONSE=$(curl $CurlARG -sL -m 10 "https://ipinfo.check.place/$IP?db=ipqualityscore")
+echo "$RESPONSE"|jq . >/dev/null 2>&1||RESPONSE=""
+ipqs[score]=$(echo "$RESPONSE"|jq -r '.fraud_score')
+if [[ ${ipqs[score]} -lt 75 ]];then
+ipqs[risk]="${sscore[low]}"
+elif [[ ${ipqs[score]} -lt 85 ]];then
+ipqs[risk]="${sscore[suspicious]}"
+elif [[ ${ipqs[score]} -lt 90 ]];then
+ipqs[risk]="${sscore[risky]}"
+elif [[ ${ipqs[score]} -ge 90 ]];then
+ipqs[risk]="${sscore[highrisk]}"
+fi
+ipqs[countrycode]=$(echo "$RESPONSE"|jq -r '.country_code')
+ipqs[proxy]=$(echo "$RESPONSE"|jq -r '.proxy')
+ipqs[tor]=$(echo "$RESPONSE"|jq -r '.tor')
+ipqs[vpn]=$(echo "$RESPONSE"|jq -r '.vpn')
+ipqs[abuser]=$(echo "$RESPONSE"|jq -r '.recent_abuse')
+ipqs[robot]=$(echo "$RESPONSE"|jq -r '.bot_status')
+}
+function check_ip_valide(){
+local IPPattern='^(\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>\.){3}\<([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\>$'
+IP="$1"
+for special_ip in ${special_ips[@]};do
+local ret=$(echo $IP|grep $special_ip)
+if [ -n "$ret" ];then
+return 1
+fi
+done
+if [[ $IP =~ $IPPattern ]];then
+return 0
+else
+return 1
+fi
+}
+function calc_ip_net(){
+sip="$1"
+snetmask="$2"
+check_ip_valide "$sip"
+if [ $? -ne 0 ];then
+return 1
+fi
+local ipFIELD1=$(echo "$sip"|cut -d. -f1)
+local ipFIELD2=$(echo "$sip"|cut -d. -f2)
+local ipFIELD3=$(echo "$sip"|cut -d. -f3)
+local ipFIELD4=$(echo "$sip"|cut -d. -f4)
+local netmaskFIELD1=$(echo "$snetmask"|cut -d. -f1)
+local netmaskFIELD2=$(echo "$snetmask"|cut -d. -f2)
+local netmaskFIELD3=$(echo "$snetmask"|cut -d. -f3)
+local netmaskFIELD4=$(echo "$snetmask"|cut -d. -f4)
+local tmpret1=$((ipFIELD1&netmaskFIELD1))
+local tmpret2=$((ipFIELD2&netmaskFIELD2))
+local tmpret3=$((ipFIELD3&netmaskFIELD3))
+local tmpret4=$((ipFIELD4&netmaskFIELD4))
+echo "$tmpret1.$tmpret2.$tmpret3.$tmpret4"
+}
+function Check_DNS_IP(){
+if [ "$1" != "${1#*[0-9].[0-9]}" ];then
+if [ "$(calc_ip_net "$1" 255.0.0.0)" == "10.0.0.0" ];then
+echo 0
+elif [ "$(calc_ip_net "$1" 255.240.0.0)" == "172.16.0.0" ];then
+echo 0
+elif [ "$(calc_ip_net "$1" 255.255.0.0)" == "169.254.0.0" ];then
+echo 0
+elif [ "$(calc_ip_net "$1" 255.255.0.0)" == "192.168.0.0" ];then
+echo 0
+elif [ "$(calc_ip_net "$1" 255.255.255.0)" == "$(calc_ip_net "$2" 255.255.255.0)" ];then
+echo 0
+else
+echo 1
+fi
+elif [ "$1" != "${1#*[0-9a-fA-F]:*}" ];then
+if [ "${1:0:3}" == "fe8" ];then
+echo 0
+elif [ "${1:0:3}" == "FE8" ];then
+echo 0
+elif [ "${1:0:2}" == "fc" ];then
+echo 0
+elif [ "${1:0:2}" == "FC" ];then
+echo 0
+elif [ "${1:0:2}" == "fd" ];then
+echo 0
+elif [ "${1:0:2}" == "FD" ];then
+echo 0
+elif [ "${1:0:2}" == "ff" ];then
+echo 0
+elif [ "${1:0:2}" == "FF" ];then
+echo 0
+else
+echo 1
+fi
+else
+echo 0
+fi
+}
+function Check_DNS_1(){
+local resultdns=$(nslookup $1)
+local resultinlines=(${resultdns//$'\n'/ })
+for i in ${resultinlines[*]};do
+if [[ $i == "Name:" ]];then
+local resultdnsindex=$((resultindex+3))
+break
+fi
+local resultindex=$((resultindex+1))
+done
+echo $(Check_DNS_IP ${resultinlines[$resultdnsindex]} ${resultinlines[1]})
+}
+function Check_DNS_2(){
+local resultdnstext=$(dig $1|grep "ANSWER:")
+local resultdnstext=${resultdnstext#*"ANSWER: "}
+local resultdnstext=${resultdnstext%", AUTHORITY:"*}
+if [ "$resultdnstext" == "0" ]||[ "$resultdnstext" == "1" ]||[ "$resultdnstext" == "2" ];then
+echo 0
+else
+echo 1
+fi
+}
+function Check_DNS_3(){
+local resultdnstext=$(dig "test$RANDOM$RANDOM.$1"|grep "ANSWER:")
+echo "test$RANDOM$RANDOM.$1"
+local resultdnstext=${resultdnstext#*"ANSWER: "}
+local resultdnstext=${resultdnstext%", AUTHORITY:"*}
+if [ "$resultdnstext" == "0" ];then
+echo 1
+else
+echo 0
+fi
+}
+function Get_Unlock_Type(){
+while [ $# -ne 0 ];do
+if [ "$1" = "0" ];then
+echo "${smedia[dns]}"
+return
+fi
+shift
+done
+}
+check_dnsbl(){
+local temp_info="$Font_Cyan$Font_B${sinfo[dnsbl]} $Font_Suffix"
+((ibar_step=95))
+show_progress_bar "$temp_info" $((40-1-${sinfo[ldnsbl]}))&
+bar_pid="$!"&&disown "$bar_pid"
+trap "kill_progress_bar" RETURN
+smail[sdnsbl]=$(check_dnsbl_parallel "$IP" 50)
 }
 
+show_basic(){
+if [[ -n ${maxmind[countrycode]} && ${maxmind[countrycode]} != "null" ]];then
+if [ "${maxmind[countrycode]}" == "${maxmind[regcountrycode]}" ];then
+echo -ne "\r$Font_Cyan${sbasic[type]}$Back_Green$Font_B$Font_White${sbasic[type0]}${stype[isp]}$Font_Suffix\n"
+else
+echo -ne "\r$Font_Cyan${sbasic[type]}$Back_Red$Font_B$Font_White${sbasic[type1]}${stype[hosting]}$Font_Suffix\n"
+fi
+fi
+}
+show_type(){
+echo -ne "\r${stype[title]}\n"
+echo -ne "\r$Font_Cyan${stype[db]}$Font_I   IPinfo    ipregistry    ipapi     AbuseIPDB  IP2LOCATION $Font_Suffix\n"
+echo -ne "\r$Font_Cyan${stype[usetype]}$Font_Suffix${ipinfo[susetype]}${ipregistry[susetype]}${ipapi[susetype]}${abuseipdb[susetype]}${ip2location[susetype]}\n"
+echo -ne "\r$Font_Cyan${stype[comtype]}$Font_Suffix${ipinfo[scomtype]}${ipregistry[susetype]}${ipapi[susetype]}\n"
+}
+sscore_text(){
+local text="$1"
+local p2=$2
+local p3=$3
+local p4=$4
+local p5=$5
+local p6=$6
+local tmplen
+local tmp
+if ((p2>=p4));then
+tmplen=$((49+15*(p2-p4)/(p5-p4)-p6))
+elif ((p2>=p3));then
+tmplen=$((33+16*(p2-p3)/(p4-p3)-p6))
+elif ((p2>=0));then
+tmplen=$((17+16*p2/p3-p6))
+else
+tmplen=0
+fi
+tmp=$(printf '%*s' $tmplen '')
+local total_length=${#tmp}
+local text_length=${#text}
+local tmp1="${tmp:1:total_length-text_length}$text|"
+sscore[text1]="${tmp1:1:16-p6}"
+sscore[text2]="${tmp1:17-p6:16}"
+sscore[text3]="${tmp1:33-p6:16}"
+sscore[text4]="${tmp1:49-p6}"
+}
+show_score(){
+echo -ne "\r${sscore[title]}\n"
+echo -ne "\r${sscore[range]}\n"
+if [[ -n ${scamalytics[score]} ]];then
+sscore_text "${scamalytics[score]}" ${scamalytics[score]} 25 50 100 13
+echo -ne "\r${Font_Cyan}SCAMALYTICS${sscore[colon]}$Font_White$Font_B${sscore[text1]}$Back_Green${sscore[text2]}$Back_Yellow${sscore[text3]}$Back_Red${sscore[text4]}$Font_Suffix${scamalytics[risk]}\n"
+fi
+if [[ -n ${ipapi[score]} ]];then
+local tmp_score=$(echo "${ipapi[scorenum]} * 10000 / 1"|bc)
+sscore_text "${ipapi[score]}" $tmp_score 85 300 10000 7
+echo -ne "\r${Font_Cyan}ipapi${sscore[colon]}$Font_White$Font_B${sscore[text1]}$Back_Green${sscore[text2]}$Back_Yellow${sscore[text3]}$Back_Red${sscore[text4]}$Font_Suffix${ipapi[risk]}\n"
+fi
+sscore_text "${abuseipdb[score]}" ${abuseipdb[score]} 25 25 100 11
+echo -ne "\r${Font_Cyan}AbuseIPDB${sscore[colon]}$Font_White$Font_B${sscore[text1]}$Back_Green${sscore[text2]}$Back_Yellow${sscore[text3]}$Back_Red${sscore[text4]}$Font_Suffix${abuseipdb[risk]}\n"
+if [ -n "${ipqs[score]}" ]&&[ "${ipqs[score]}" != "null" ];then
+sscore_text "${ipqs[score]}" ${ipqs[score]} 75 85 100 6
+echo -ne "\r${Font_Cyan}IPQS${sscore[colon]}$Font_White$Font_B${sscore[text1]}$Back_Green${sscore[text2]}$Back_Yellow${sscore[text3]}$Back_Red${sscore[text4]}$Font_Suffix${ipqs[risk]}\n"
+fi
+sscore_text " " ${dbip[score]} 33 66 100 7
+[[ -n ${dbip[risk]} ]]&&echo -ne "\r${Font_Cyan}DB-IP${sscore[colon]}$Font_White$Font_B${sscore[text1]}$Back_Green${sscore[text2]}$Back_Yellow${sscore[text3]}$Back_Red${sscore[text4]}$Font_Suffix${dbip[risk]}\n"
+}
 
+check_IP(){
+IP=$1
+ibar_step=0
+[[ $2 -eq 4 ]]&&hide_ipv4 $IP
+[[ $2 -eq 6 ]]&&hide_ipv6 $IP
 
+db_maxmind
+db_ipinfo
+db_scamalytics
 
+db_ipregistry
+db_ipapi
+db_abuseipdb
+db_ip2location
+db_dbip
+db_ipwhois
+db_ipdata
+db_ipqs
+echo -ne "$Font_LineClear"
+local ip_report=$(
+show_basic
+show_type
+show_score
+)
+
+local report_link=$(curl -$2 -s -X POST http://upload.check.place -d "type=ip" --data-urlencode "content=$ip_report")
+echo -ne "\r$ip_report\n"
+[[ $report_link == *"https"* ]]&&echo -ne "\r${stail[link]}$report_link$Font_Suffix\n"
+}
+install_dependencies
+generate_random_user_agent
+get_ipv4
+get_ipv6
+is_valid_ipv4 $IPV4
+is_valid_ipv6 $IPV6
+set_language
+if [[ $ERRORcode -ne 0 ]];then
+echo -ne "\r$Font_B$Font_Red${swarn[$ERRORcode]}$Font_Suffix\n"
+exit $ERRORcode
+fi
+if [[ $IPV4test == "" && $IPV6test == "" ]];then
+[[ $IPV4work -ne 0 ]]&&IPV4test=$IPV4
+[[ $IPV6work -ne 0 ]]&&IPV6test=$IPV6
+fi
+[[ -n $IPV4test ]]&&check_IP "$IPV4test" 4
+[[ -n $IPV6test ]]&&check_IP "$IPV6test" 6
+}
+
+# 可以使用的 IP API 服务商
+IP_API=("http://ip-api.com/json/" "https://api.ip.sb/geoip")
+ISP=("isp" "isp")
+IP=("query" "ip")
+
+# 查 IPv4 信息
+IP_4=$(curl -s4m5 -A Mozilla ${IP_API[0]})
+WAN_4=$(expr "$IP_4" : '.*'${IP[0]}'\":[ ]*\"\([^"]*\).*')
+if [ -n "$WAN_4" ]; then
+    COUNTRY_4E=$(expr "$IP_4" : '.*country\":[ ]*\"\([^"]*\).*')
+    COUNTRY_4=$(translate "$COUNTRY_4E")
+    ASNORG_4=$(expr "$IP_4" : '.*'${ISP[0]}'\":[ ]*\"\([^"]*\).*')
+    FRAUD_SCORE_4=$(curl -m10 -sL -H "Referer: https://scamalytics.com" \
+    "https://scamalytics.com/ip/$WAN_4" | awk -F : '/Fraud Score/ {gsub(/[^0-9]/,"",$2); print $2}')
+    TYPE_4=$(curl -sG https://api.abuseipdb.com/api/v2/check \
+    --data-urlencode "ipAddress=$WAN_4" \
+    -d maxAgeInDays=90 \
+    -d verbose \
+    -H "Key: 59f18f3d7bfe41ba6eb6c6ba8bd8801c2add9ec039fedcb7b863c8dbfbcbe7f96d3648c3a456c8fb" \
+    -H "Accept: application/json" | sed 's@.*usageType":"\([^"]\+\).*@\1@g' | sed "s@.*Data Center.*@数据中心@;s@Fixed Line ISP@家庭宽带@;s@.*Commercial.*@商业宽带@;s@.*Mobile ISP.*@移动流量@;s@.*Content Delivery Network.*@内容分发网络(CDN)@;s@.*Search Engine Spider.*@搜索引擎蜘蛛@;s@.*University.*@教育网@;s@.*Unknown.*@未知@")
+fi
 
 
 # 主界面
 function _menu() {
-    [[ $debug != 1 ]] && clear ; echo
-echo -e  " ${baizise}${bold}                  This is the choice of Steins;Gate                   ${jiacu} "
-    echo
+    [[ $debug != 1 ]]
+echo -e  " ${baizise}${bold}                  服务器信息                   ${jiacu} "
+echo -e  "    主机名:             $hostname${jiacu}"    
 echo -e  "  CPU 型号              ${cyan}$CPUNum$cname${jiacu}"
+echo -e " AES-NI:                 $aes_status"
+echo -e " VM-x/AMD-V              $virt_status"
 echo -e  "  CPU 核心              ${cyan}合计 ${cpucores} 核心，${cputhreads} 线程${jiacu}"
 echo -e  "  CPU 状态              ${cyan}当前主频 ${freq} MHz${jiacu}"
 echo -e  "  内存大小              ${cyan}$tram MB ($uram MB 已用)${jiacu}"
     [[ ! $swap == 0 ]] &&
 echo -e  "  交换分区              ${cyan}$swap MB ($uswap MB 已用)${jiacu}"
-    echo
-
     _show_disk_info | tee -a $HOME/.abench/_show_disk_info
     if [[ -s $HOME/.abench/_show_disk_info ]]; then
-        echo # 增加一行
         [[ $debug != 1 ]] && rm -f $HOME/.abench/_show_disk_info
     fi
-    # [[ ! $Seedbox == Unknown ]] && DiskNumDisplay="共 $disk_num 块硬盘，合计 "
-    # [[ ! $Seedbox == Unknown ]] && SeedboxDiskTotalFlagOne="总" ; [[ $Seedbox == Unknown ]] && SeedboxDiskTotalFlagTwo="  "
     SeedboxDiskTotalFlagTwo="  "
     [[ $disk_num -ge 2 ]] && DiskNumDisplay="共 $disk_num 块硬盘，合计 " && SeedboxDiskTotalFlagOne="总" && SeedboxDiskTotalFlagTwo=""
 echo -e  "  ${SeedboxDiskTotalFlagOne}硬盘大小       ${SeedboxDiskTotalFlagTwo}     ${cyan}${DiskNumDisplay}$disk_total_size GB${jiacu}"
-    # 已用容量这个要分类讨论有点麻烦，扔了算了……
-    # ($disk_used_size GB 已用)
-
-
             if [[ ! $Seedbox == Unknown ]] && [[ ! $EUID = 0 ]] && [[ ! $virtual == Docker ]]; then
 echo -e  "  当前硬盘分区大小      ${cyan}${current_disk_size}B (共 ${current_disk_total_used}B 已用，其中你用了 ${current_disk_self_used}B)${jiacu}"
 echo -e  "  共享盒子邻居数量      ${cyan}整台机器共 $neighbors_all_num 位邻居，其中同硬盘邻居 $neighbors_same_disk_num 位${jiacu}"
             fi
-
-    echo
 echo -e  "  服务器时间            ${cyan}$date${jiacu}"
-echo -e  "  运行时间              ${cyan}$uptime1${jiacu}"
+echo -e  "  运行时间              ${cyan}$uptimes${jiacu}"
 echo -e  "  系统负载              ${cyan}$load${jiacu}"
 echo -e  "  虚拟化技术            ${cyan}$virtual${jiacu}"
-    echo
-
+echo -e  "  IPv4/IPv6           ${green}$online${jiacu}"
             if [[ $show_ip == 1 ]]; then
 echo -e  "  IPv4 地址             ${green}$serveripv4_show${jiacu}"
                 [[ $serveripv6 ]] &&
@@ -242,34 +1262,31 @@ echo -e  "  IPv6 地址             ${green}$serveripv6_show${jiacu}"
                 [[ ! $Seedbox == Unknown ]] &&
 echo -e  "  盒子域名              ${green}$serverfqdn${jiacu}"
             fi
-
             if [[ $show_ipip == 1 ]] && [[ -n $asnnnnn ]]; then
 echo -e  "  运营商                ${green}$asnnnnn${jiacu}"
-echo -e  "  地理位置              ${green}$country, $regionn, $cityyyy${jiacu}"
+echo -e  "  标准国家代码          ${green}$country${jiacu}"
+echo -e  "  国家                  ${green}$COUNTRY4${jiacu}"
+#echo -e  "  IP类型:               ${green}$TYPE_4${jiacu}"
+#echo -e  "  欺诈分数(越低越好):    ${green}$FRAUD_SCORE_4${jiacu}"
+checkstem_ip
+regionn=$(translate "$regionn"); cityyyy=$(translate "$cityyyy")
+echo -e  "  地理位置              ${green}$regionn, $cityyyy${jiacu}"
             fi
-
-    [[ $show_ip == 1 || $show_ipip == 1 ]] && echo
-
+    [[ $show_ip == 1 || $show_ipip == 1 ]]
 echo -e  "  操作系统              ${green}$DISTRO $osversion $CODENAME ($arch)${jiacu}"
     [[ $running_kernel ]] &&
 echo -e  "  系统内核              ${green}$running_kernel${jiacu}"
     [[ $tcp_c_name ]] &&
 echo -e  "  TCP 加速              ${green}$tcp_c_name${jiacu}"
-    echo
-
-echo -e  "  ${jiacu}当前脚本版本          $ScriptVersion${normal}"
-    echo
-
-    [[ $CODENAME == buster ]] && ls $HOME | grep -q images && echo -e 
+echo -e  "  ${jiacu}当前脚本版本:         $ScriptVersion${normal}"
+echo -e  "  ${jiacu}修改脚本时间:         $SCRIPTUPDATE${normal}"
+    [[ $CODENAME == buster ]] && ls $HOME | grep -q images
 }
-
-
-
-
 # 结构 ----------------------------------------------------------------------------------------------
 
 [[ $show_ip   == 1 ]] && { ipv4_check ; ipv6_check ; }
-[[ $show_ipip == 1 ]] && echo -e "${bold}正在检查 ASN 等信息 ...${normal}" && ip_ipinfo_aniverse
+[[ $show_ipip == 1 ]] && ip_ipinfo_aniverse
 _menu
-[[ $test_io == 1 ]] && io_bench
+[[ $test_io == 1 ]]
 [[ $delete == 1 ]] && rm -rf $HOME/.abench test_file_* $HOME/ipapi
+#=============
